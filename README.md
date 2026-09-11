@@ -1,2 +1,28 @@
-# sqlserver‑data‑compare‑tool
-Python tool for SQL Server cross-database data comparison, for ERP data migration verification
+# SQL Server 跨库数据比对工具(V3.3)
+面向ERP实施数据迁移校验场景，SQL Server双库一致性比对工具
+
+## 项目简介
+在ERP实施上线过程中，经常需要将旧系统主数据、期初业务数据迁移至新ERP系统，迁移完成后需要核对源库与目标库的数据一致性。
+本工具基于 Python + pyodbc + SQLAlchemy + pandas，读取两套SQL‑Server数据库，基于**主键集合哈希运算**做比对，自动识别三类数据差异：
+目标库缺失数据（待新增）
+目标库冗余脏数据（待删除）
+单字段内容不一致（待更新）
+
+工具输出两类产物：
+Excel完整差异报告，包含4张工作表，完整展示全部业务字段，便于人工核查；
+带事务保护的SQL修复脚本，默认不自动提交，需要人工审核后再执行。
+
+**重要安全提示**
+SQL修改脚本**仅建议在测试环境用于差异排查**。
+生产环境严禁直接执行脚本修改底层数据表，业务数据错误优先通过前台业务单据调整。
+
+## 技术栈
+Python 3.8+
+pyodbc：数据库连接，自动适配本机SQL Server ODBC驱动
+SQLAlchemy：数据库引擎，上下文管理器自动回收连接，避免连接泄露
+pandas：数据处理、Excel报表生成
+openpyxl：Excel多sheet写入支持
+
+## 环境依赖安装
+```bash
+pip install -r requirements.txt
