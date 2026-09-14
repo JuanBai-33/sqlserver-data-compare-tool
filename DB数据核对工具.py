@@ -9,7 +9,7 @@ from sqlalchemy.exc import SAWarning
 # 屏蔽SQLAlchemy版本警告
 warnings.filterwarnings("ignore", category=SAWarning)
 
-# ========== 自动适配本机所有ODBC驱动（终极兼容，不再锁17） ==========
+#-----------自动适配本机所有ODBC驱动-------------
 def get_best_sql_driver():
     for d in pyodbc.drivers():
         if "SQL Server" in d:
@@ -44,16 +44,16 @@ class DataSyncChecker:
         if df.empty:
             print(f"【警告】表[{table_name}]查询结果为空！")
 
-        # 前置校验：主键字段必须存在
+        #前置校验：主键字段必须存在
         if primary_key not in df.columns:
             raise ValueError(f"校验失败：查询结果缺少主键字段「{primary_key}」，检查select_fields配置！")
 
-        # 重复主键检测
+        #重复主键检测
         dup_count = df.duplicated(subset=[primary_key]).sum()
         if dup_count > 0:
             raise ValueError(f"【严重错误】表[{table_name}]存在 {dup_count} 条重复主键，无法正常比对，请先清理脏数据！")
 
-        # 核心优化：保留原始Id列 + 设置索引提速
+        #核心优化：保留原始Id列 + 设置索引提速
         df["tmp_index"] = df[primary_key]
         df = df.set_index("tmp_index")
 
@@ -67,12 +67,12 @@ class DataSyncChecker:
             return str(val)
         if isinstance(val, datetime):
             return f"'{val.strftime('%Y-%m-%d %H:%M:%S')}'"
-        # 单引号转义，防止SQL语法错误
+        #单引号转义，防止SQL语法错误
         s = str(val).replace("'", "''")
         return f"'{s}'"
 
     def compare_table(self, table_name, primary_key, select_fields, compare_fields, insert_primary_key=True):
-        print(f"\n========== 开始比对数据表：{table_name} ==========")
+        print(f"\n------------开始比对数据表：{table_name}-------------")
         try:
             source_df = self.get_table_data(self.source_conn, table_name, select_fields, primary_key)
             target_df = self.get_table_data(self.target_conn, table_name, select_fields, primary_key)
@@ -82,7 +82,7 @@ class DataSyncChecker:
             traceback.print_exc()
             return
 
-        # 利用索引快速获取主键集合（高性能、哈希匹配）
+        #利用索引快速获取主键集合（高性能、哈希匹配）
         source_keys = set(source_df.index)
         target_keys = set(target_df.index)
 
@@ -90,7 +90,7 @@ class DataSyncChecker:
         need_del_keys = target_keys - source_keys
         common_keys = source_keys & target_keys
 
-        # 字段差异比对
+        #字段差异比对
         diff_list = []
         for key in common_keys:
             src_row = source_df.loc[key]
@@ -109,12 +109,12 @@ class DataSyncChecker:
                     "目标库值": tgt_val
                 })
 
-        # ========== 生成SQL脚本 ==========
+        #生成SQL脚本
         sql_scripts = []
         sql_scripts.append("BEGIN TRANSACTION; -- 执行完确认无误，取消下面COMMIT注释")
         sql_scripts.append("")
 
-        # 新增语句（完美支持主键插入）
+        #新增语句（主键插入）
         for key in need_add_keys:
             row = source_df.loc[key]
             if insert_primary_key:
@@ -126,12 +126,12 @@ class DataSyncChecker:
             sql_scripts.append(f"INSERT INTO [{table_name}] ({cols}) VALUES ({vals});")
 
         sql_scripts.append("")
-        # 删除语句
+        #删除语句
         for key in need_del_keys:
             sql_scripts.append(f"DELETE FROM [{table_name}] WHERE [{primary_key}] = {self.format_sql_value(key)};")
 
         sql_scripts.append("")
-        # 更新语句合并
+        #更新语句合并
         update_map = {}
         for item in diff_list:
             pk = item["主键"]
@@ -147,7 +147,7 @@ class DataSyncChecker:
         sql_scripts.append("--COMMIT;")
         sql_scripts.append("--ROLLBACK;")
 
-        # ========== 修复：时间不带冒号，彻底解决Windows报错 ==========
+        
         now = datetime.now().strftime("%Y%m%d_%H_%M_%S")
         excel_name = os.path.join(OUTPUT_FOLDER, f"完整数据差异报告_{table_name}_{now}.xlsx")
         sql_name = os.path.join(OUTPUT_FOLDER, f"同步脚本_{table_name}_{now}.sql")
@@ -180,16 +180,16 @@ class DataSyncChecker:
         except Exception as e:
             print(f"写入文件失败：{e}")
 
-        print(f"\n✅========== 比对完成（V3.3 高性能最终版） ==========✅")
-        print(f"📌 待新增数据：{len(need_add_keys)} 条")
-        print(f"📌 待删除数据：{len(need_del_keys)} 条")
-        print(f"📌 字段不一致：{len(diff_list)} 处")
-        print(f"📁 完整Excel报告：{excel_name}")
-        print(f"📁 同步SQL脚本：{sql_name}\n")
+        print(f"\n---------比对完成-------------")
+        print(f"待新增数据：{len(need_add_keys)} 条")
+        print(f"待删除数据：{len(need_del_keys)} 条")
+        print(f"字段不一致：{len(diff_list)} 处")
+        print(f"完整Excel报告：{excel_name}")
+        print(f"同步SQL脚本：{sql_name}\n")
 
 
 if __name__ == "__main__":
-    # 动态驱动，全机器兼容
+    #动态驱动，全机器兼容
     source_db = (
         f"DRIVER={{{BEST_DRIVER}}};"
         "SERVER=.\\SQLEXPRESS;"
